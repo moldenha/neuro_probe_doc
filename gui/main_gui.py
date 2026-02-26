@@ -24,6 +24,7 @@ class MainGui(tk.Tk):
         # .name would give you with the extension
         # .stem would give you without the extension
         self.images = [Path(file_path).stem for file_path in load_image_paths()]
+        self.data_points = get_data_points()
         self.selected_image = None
         self.combo_box = None
         if self.images == {} or len(self.images) == 0:
@@ -31,7 +32,6 @@ class MainGui(tk.Tk):
             self.register_new_image()
         assert len(self.images) == len(set(self.images)), "Error, you have an image in resources and in the images list that is duplicated"
         self.update_image_selector()
-        self.data_points = get_data_points()
         self.check_data_points()
         self.data_point_selector = MultiSelectDropdown(self.toolbar, [], "View Points")
         self.data_point_selector.bind_func = self.draw_data_point
@@ -305,7 +305,7 @@ class MainGui(tk.Tk):
                     messagebox.showwarning("Duplicate Image", "You are trying to register an image who's name already exists in the registrar!")
                     return
                 self.images.append(Path(new_image).stem)
-                self.upate_image_selector()
+                self.update_image_selector()
                 self.check_data_points()
 
 

@@ -125,7 +125,10 @@ def save_data_points(data):
     external_sync_data_points()
 
 def load_image_paths():
-    return safe_json_load(config["ImageListsFile"])
+    imgs = safe_json_load(config["ImageListsFile"])
+    if imgs == {}:
+        return []
+    return imgs
 
 # Copies the image into the 
 def add_image(source_image_path : str):
@@ -136,6 +139,7 @@ def add_image(source_image_path : str):
         try:
             shutil.copy(source_image_path, dest_image_path)
             images.append(img_name)
+            print("appending to image lists file")
             safe_json_store(config["ImageListsFile"], images)
             external_sync_images()
             return dest_image_path
@@ -182,7 +186,7 @@ def resource_check(do_backup_sync=True):
             data_points[file] = {}
             save = True
     if save:
-        save_data_pointe(data_points)
+        save_data_points(data_points)
 
     # Checking for external sync
     settings = safe_json_load(config["SettingsFile"])
