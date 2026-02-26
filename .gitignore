@@ -1,0 +1,8 @@
+__pycache__
+gui/__pycache__
+resources/images/image.jpeg
+resources/images/image_2.jpeg
+resources/data_points.json
+resources/images.json
+resources/settings.json
+utils/__pycache__
