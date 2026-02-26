@@ -281,7 +281,7 @@ class MainGui(tk.Tk):
         try:
             self.image_viewer.canvas.config(cursor="zoom-out" if self.image_viewer.zoom_out_option else "")
         except tk.TclError:
-            self.image_viewer.canvas.config(cursor=config["ZoomOutCursorFallback"] if self.image_viewer.zoom_in_option else "")
+            self.image_viewer.canvas.config(cursor=config["ZoomOutCursorFallback"] if self.image_viewer.zoom_out_option else "")
 
 
     def on_image_selection__(self, event):
