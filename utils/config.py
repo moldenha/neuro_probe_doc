@@ -12,8 +12,8 @@ config = {
         "ImagesDirectory"      : os.path.join(resource_directory, "images"),
         "ZoomOutImg"           : os.path.join(resource_directory, "zoom_out.png"),
         "ZoomInImg"            : os.path.join(resource_directory, "zoom_in.png"),
-        "SettingsFile"         : os.path.join(resource_directory, "settings.json")
-        "ZoomInCursorFallback" : "plus"
+        "SettingsFile"         : os.path.join(resource_directory, "settings.json"),
+        "ZoomInCursorFallback" : "plus",
         "ZoomOutCursorFallback": "arrow"
 }
 
