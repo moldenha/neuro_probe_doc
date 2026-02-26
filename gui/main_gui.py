@@ -267,7 +267,10 @@ class MainGui(tk.Tk):
             return
         self.image_viewer.zoom_in_option = not self.image_viewer.zoom_in_option
         self.image_viewer.zoom_out_option = False
-        self.image_viewer.canvas.config(cursor="zoom-in" if self.image_viewer.zoom_in_option else "")
+        try:
+            self.image_viewer.canvas.config(cursor="zoom-in" if self.image_viewer.zoom_in_option else "")
+        except tk.TclError:
+            self.image_viewer.canvas.config(cursor=config["ZoomInCursorFallback"] if self.image_viewer.zoom_in_option else "")
 
 
     def zoom_out__(self, event = None):
@@ -275,7 +278,10 @@ class MainGui(tk.Tk):
             return
         self.image_viewer.zoom_out_option = not self.image_viewer.zoom_out_option
         self.image_viewer.zoom_in_option = False
-        self.image_viewer.canvas.config(cursor="zoom-out" if self.image_viewer.zoom_out_option else "")
+        try:
+            self.image_viewer.canvas.config(cursor="zoom-out" if self.image_viewer.zoom_out_option else "")
+        except tk.TclError:
+            self.image_viewer.canvas.config(cursor=config["ZoomOutCursorFallback"] if self.image_viewer.zoom_in_option else "")
 
 
     def on_image_selection__(self, event):
