@@ -132,6 +132,8 @@ def load_image_paths():
 
 # Copies the image into the 
 def add_image(source_image_path : str):
+    if not os.path.exists(config["ImagesDirectory"]):
+        os.makedirs(config["ImagesDirectory"], exist_ok = True)
     img_name = Path(source_image_path).name
     dest_image_path = os.path.join(config["ImagesDirectory"], img_name)
     images = load_image_paths()
