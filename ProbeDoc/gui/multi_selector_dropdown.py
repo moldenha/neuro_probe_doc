@@ -1,41 +1,40 @@
+# DEPRECIATION WARNING
+# This class was previously a toggled drop down menu
+# It has been remade to be a multi select column with different buttons
+
 import tkinter as tk
 from tkinter import ttk
-
+from tkinter import filedialog
+from PIL import Image
+import io
 
 class MultiSelectDropdown:
-    def __init__(self, parent, items, text = "Select Items"):
+    def __init__(self, parent, items, text = "Select Items", row=1, column=0):
         self.parent = parent
         self.items = items
         self.vars = {}
 
-        self.button = ttk.Button(parent, text=text, command=self.toggle_dropdown)
-        self.button.pack(side = 'left', padx=5, anchor="nw")
+        # self.button = ttk.Button(parent, text=text, command=self.toggle_dropdown)
+        # self.button.pack(side = 'left', padx=5, anchor="nw")
 
-        self.popup = None
+        self.sidebar = None
         self.bind_func = self.on_item_toggle
         self.edit_points_fcn = self.edit_button
         self.delete_points_fcn = self.delete_button
+        self.make_dropdown(row=row, column=column)
 
-    def toggle_dropdown(self):
-        if self.popup and self.popup.winfo_exists():
-            self.popup.destroy()
-            return
-
-        self.popup = tk.Toplevel(self.parent)
-        self.popup.transient(self.parent)
-        self.popup.resizable(False, False)
-        # self.popup.transient(self.parent)
-        # self.popup.wm_overrideredirect(True)
-
-        # Position below button
-        x = self.button.winfo_rootx()
-        y = self.button.winfo_rooty() + self.button.winfo_height()
-        self.popup.geometry(f"+{x}+{y}")
-
-        container = ttk.Frame(self.popup)
-        container.pack(fill="both", expand=True)
-
-        # ---- Select All ----
+    def make_dropdown(self, row=1, column=0):
+        if self.sidebar and self.sidebar.winfo_exists():
+            self.sidebar.destroy()
+        
+        self.sidebar = ttk.Frame(self.parent)
+        self.sidebar.grid(row=row, column=column)
+        # self.sidebar.grid(row=row, column=column)
+        self.sidebar.grid(sticky="nw")
+        self.sidebar.rowconfigure(0, weight=0)  
+        self.sidebar.columnconfigure(0, weight=1) # only columns expandable
+        # self.sidebar.pack(fill="both", expand=True)
+         # ---- Select All ----
         select_all_var = tk.BooleanVar()
 
         def toggle_all():
@@ -43,17 +42,17 @@ class MultiSelectDropdown:
                 var.set(select_all_var.get())
 
         ttk.Checkbutton(
-            container,
+            self.sidebar,
             text="Select All",
             variable=select_all_var,
             command=toggle_all
         ).pack(anchor="w")
 
-        ttk.Separator(container).pack(fill="x", pady=5)
+        ttk.Separator(self.sidebar).pack(fill="x", pady=5)
 
         # ---- Items ----
         for name, color in self.items:
-            row = ttk.Frame(container)
+            row = ttk.Frame(self.sidebar)
             row.pack(fill="x", padx=5, pady=2)
             
             if name not in self.vars:
@@ -79,6 +78,14 @@ class MultiSelectDropdown:
 
 
         self.bind(self.bind_func)
+
+
+    def toggle_dropdown(self, row=0, column=1):
+        if self.sidebar and self.sidebar.winfo_exists():
+            self.sidebar.destroy()
+            return
+        
+        self.make_dropdown(row=row, column=column)
 
     def bind(self, func):
         self.bind_func = func

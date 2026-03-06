@@ -1,0 +1,1 @@
+pyinstaller --noconsole --name "ProbeAnnotation" --icon "ProbeDoc/resources/app_icon.ico" run_documentation.py --add-data "ProbeDoc/resources;ProbeDoc/resources"

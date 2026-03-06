@@ -35,7 +35,15 @@ def set_always_sync_on_startup(new_state_ : tk.BooleanVar):
     config["StartupBackupSync"] = new_state 
     safe_json_store(config["SettingsFile"], settings)
 
+def load_notes():
+    if os.path.exists(config["NotesFile"]):
+        with open(config["NotesFile"], 'r') as f:
+            return f.read()
+    return ""
 
+def save_notes(content):
+    with open(config["NotesFile"], 'w') as f:
+        f.write(content)
 
 def safe_copy_file(source_file : str, destination_file : str):
     try:
@@ -89,11 +97,12 @@ def external_sync(force = False):
     if force:
         resource_check(False)
     if not config.get("PerformExternalSync", False):
-        return
+        return False
     destination_dir = config.get("ExternalSyncDir", None)
     if not destination_dir:
-        return
+        return False
     safe_copy_dir(config["ResourceDirectory"], destination_dir, relative_ignore = ["settings.json"]) 
+    return True
 
 def external_sync_data_points():
     if not config.get("PerformExternalSync", False):
@@ -103,6 +112,9 @@ def external_sync_data_points():
         return
     destination_file = os.path.join(destination_dir, "data_points.json")
     source_file = config["SavePointsFile"]
+    safe_copy_file(source_file, destination_file)
+    destination_file = os.path.join(destination_dir, "notes.txt")
+    source_file = config["NotesFile"]
     safe_copy_file(source_file, destination_file)
 
 def external_sync_images():
@@ -115,17 +127,34 @@ def external_sync_images():
     source_dir = config["ImagesDirectory"]
     safe_copy_dir(source_dir, destination_img_dir)
     safe_copy_file(config["ImageListsFile"], os.path.join(destination_dir, "images.json"))
+    safe_copy_file(config["ImageOriginalListsFile"], os.path.join(destination_dir, "images_original.json"))
 
 
 def get_data_points():
     return safe_json_load(config["SavePointsFile"])
 
+def ask_external_sync():
+    if messagebox.askyesno("Confirm Sync", "Would you like to sync the data upon exit?"):
+        synced = external_sync(force=False)
+        if not synced:
+            messagebox.showwarning("External Sync Failed", 
+                                   "Error: External sync failed, please sync manually or with application sync button")
+            return False
+    return True
+
 def save_data_points(data):
     safe_json_store(config["SavePointsFile"], data)
-    external_sync_data_points()
+    # NOTE: Change: made external_sync (for anything) not automatic
+    # external_sync_data_points()
 
 def load_image_paths():
     imgs = safe_json_load(config["ImageListsFile"])
+    if imgs == {}:
+        return []
+    return imgs
+
+def load_original_image_paths():
+    imgs = safe_json_load(config["ImageOriginalListsFile"])
     if imgs == {}:
         return []
     return imgs
@@ -137,13 +166,17 @@ def add_image(source_image_path : str):
     img_name = Path(source_image_path).name
     dest_image_path = os.path.join(config["ImagesDirectory"], img_name)
     images = load_image_paths()
+    images_original = load_original_image_paths()
+    images_original.append(source_image_path)
     if img_name not in images:
         try:
             shutil.copy(source_image_path, dest_image_path)
             images.append(img_name)
             print("appending to image lists file")
             safe_json_store(config["ImageListsFile"], images)
-            external_sync_images()
+            safe_json_store(config["ImageOriginalListsFile"], images_original)
+            # NOTE: Change: made external_sync (for anything) not automatic
+            # external_sync_images()
             return dest_image_path
         except FileNotFoundError:
             print(f"Error: Source file '{source_image_path}' not found.")

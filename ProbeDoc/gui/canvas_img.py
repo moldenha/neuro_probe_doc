@@ -6,7 +6,8 @@
 Sam Notes: The basis of some of the features was coppied from stack overflow
 
 The reason that this was taken from someone else/stack overflow is because
-this is safer for larger images, and I don't need to reinvent anything here
+this version was worked on extensively by someone else to be safer for larger images, 
+and I don't need to reinvent anything here
 
 Obviously some stuff was changed:
 - Scrolling to zoom in and out was taken out
@@ -26,14 +27,13 @@ Stuff to add:
 '''
 
 
-# -*- coding: utf-8 -*-
 # Advanced zoom for images of various types from small to huge up to several GB
 import math
 import warnings
 import tkinter as tk
 
 from tkinter import ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 
 class AutoScrollbar(ttk.Scrollbar):
     """ A scrollbar that hides itself if it's not needed. Works only for grid geometry manager """
@@ -295,6 +295,26 @@ class CanvasImage:
 
         return int(img_x), int(img_y)        
 
+    
+    def get_image__(self, radius, data_pts): 
+        base_image = self.__image.copy()
+        draw = ImageDraw.Draw(base_image)
+        # print(radius)
+        # print(data_pts)
+        for pts in data_pts:
+            color = pts['color']
+            img_x = pts['pos'][0]
+            img_y = pts['pos'][1]
+            items = self.canvas.find_withtag(f"data_point_{img_x}_{img_y}_{color}")
+            if (len(items) == 0): continue
+            draw.ellipse(
+                (img_x - radius, img_y - radius, img_x + radius, img_y + radius),
+                fill=color,
+                outline="black",
+                width=1
+            )
+
+        return base_image
 
     def outside(self, x, y):
         """ Checks if the point (x,y) is outside the image area """

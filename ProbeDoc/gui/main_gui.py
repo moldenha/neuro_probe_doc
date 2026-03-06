@@ -6,12 +6,12 @@ from .zoom_image_viewer import ZoomImageViewer
 from .canvas_img import CanvasImage
 from .multi_selector_dropdown import MultiSelectDropdown
 from .name_color_dialog import get_name_and_color
+from .notes_popup import NotesPopup
 from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path
 from ..utils.config import config
 from pathlib import Path
 from PIL import Image, ImageTk
 from functools import partial
-
 
 class MainGui(tk.Tk):
     def __init__(self):
@@ -19,7 +19,7 @@ class MainGui(tk.Tk):
         self.title("Neuropixel Probe Location Documentation")
         self.geometry("800x600")
         self.toolbar = tk.Frame(self)
-        self.toolbar.grid(row=0, column=0, sticky="ew")
+        self.toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
         # self.toolbar.pack(side="top", fill="x")
         # .name would give you with the extension
         # .stem would give you without the extension
@@ -33,27 +33,37 @@ class MainGui(tk.Tk):
         assert len(self.images) == len(set(self.images)), "Error, you have an image in resources and in the images list that is duplicated"
         self.update_image_selector()
         self.check_data_points()
-        self.data_point_selector = MultiSelectDropdown(self.toolbar, [], "View Points")
+        self.data_point_selector = MultiSelectDropdown(self, [], "View Points")
         self.data_point_selector.bind_func = self.draw_data_point
         self.data_point_selector.edit_points_fcn = self.edit_data_point
         self.data_point_selector.delete_points_fcn = self.delete_data_point
         self.update_data_point_selector()
-        self.add_point_button = ttk.Button(self.toolbar, text="Add Point", command=self.add_data_point)
-        self.add_point_button.pack(side = 'left', padx=5, anchor="nw")
         self.add_image_button = ttk.Button(self.toolbar, text = "Add Image", command=self.register_new_image)
         self.add_image_button.pack(side = 'left', padx=5, anchor='nw')
+
+        self.add_point_button = ttk.Button(self.toolbar, text="Add Point", command=self.add_data_point)
+        self.add_point_button.pack(side = 'left', padx=5, anchor="nw")
         zoom_in_img = Image.open(config["ZoomInImg"]).resize((18, 18))
+        zoom_in_img_activated = Image.open(config["ZoomInImgActivated"]).resize((18, 18))
         self.zoom_in_icon = ImageTk.PhotoImage(zoom_in_img)
+        self.zoom_in_activated_icon = ImageTk.PhotoImage(zoom_in_img_activated)
         self.zoom_in_button = tk.Button(self.toolbar, image=self.zoom_in_icon, command=self.zoom_in__)
         self.zoom_in_button.pack(side = 'left', padx=5, anchor="nw")
         zoom_out_img = Image.open(config["ZoomOutImg"]).resize((18, 18))
+        zoom_out_img_activated = Image.open(config["ZoomOutImgActivated"]).resize((18, 18))
         self.zoom_out_icon = ImageTk.PhotoImage(zoom_out_img)
+        self.zoom_out_activated_icon = ImageTk.PhotoImage(zoom_out_img_activated)
         self.zoom_out_button = tk.Button(self.toolbar, image=self.zoom_out_icon, command=self.zoom_out__)
         self.zoom_out_button.pack(side = 'left', padx=5, anchor="nw")
         self.image_viewer = None
+        # Make the main column expand
         self.grid_rowconfigure(0, weight=0)   # toolbar does NOT expand
-        self.grid_rowconfigure(1, weight=1)   # viewer expands
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        # self.grid_rowconfigure(0, weight=0)   # toolbar does NOT expand
+        # self.grid_rowconfigure(1, weight=1)   # viewer expands
+        # self.grid_columnconfigure(0, weight=0) # Column point viewer does NOT expand
+        # self.grid_columnconfigure(1, weight=1) # viewer expands
         self.display_new_image()
         self.point_radius = tk.Scale(self.toolbar,
                                      from_ = 0.0,
@@ -64,6 +74,7 @@ class MainGui(tk.Tk):
         )
         self.point_radius.pack(side = 'left', padx=5, anchor="nw")
         self.point_radius.set(5.0)
+        self.notes_popup = NotesPopup(self.toolbar)
         self.menubar = tk.Menu(self)
         self.config(menu=self.menubar)
         self.options_menu = tk.Menu(self.menubar, tearoff=0)
@@ -77,10 +88,21 @@ class MainGui(tk.Tk):
                                           variable = self.option_always_sync_on_startup_var,
                                           command = lambda n=self.option_always_sync_on_startup_var: set_always_sync_on_startup(n))
         
+
+        self.file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.file_menu.add_command(label="Export", command=self.save_canvas)
+        
+        self.menubar.add_cascade(label="File", menu=self.file_menu)
         self.menubar.add_cascade(label="Options", menu=self.options_menu)
+
+        self.update_data_point_selector()
 
 
     def update_data_point_selector(self):
+        var_cpy = {}
+        for key in self.data_point_selector.vars.keys():
+            var_cpy[key] = self.data_point_selector.vars[key].get()
+        self.toggle_data_points_off()
         l = self.data_points[self.selected_image.get()]
         if len(l) == 0:
             self.data_point_selector.items = []
@@ -88,6 +110,11 @@ class MainGui(tk.Tk):
         self.data_point_selector.vars = {}
         self.data_point_selector.items = [(item["name"], item["color"]) for item in l]
         self.data_point_selector.items = sorted(self.data_point_selector.items, key = lambda item: item[0])
+        self.data_point_selector.make_dropdown()
+        keys = self.data_point_selector.vars.keys()
+        for key in var_cpy.keys():
+            if key in keys:
+                self.data_point_selector.vars[key].set(var_cpy[key])
         
     
     def delete_data_point(self, name):
@@ -95,22 +122,18 @@ class MainGui(tk.Tk):
         indexes = [i for i, x in enumerate(l) if x["name"] == name]
         if len(indexes) == 0:
             return
-        toggle = False
-        if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
-            self.data_point_selector.popup.destroy()
-            toggle = True
         item = self.data_points[self.selected_image.get()][indexes[0]]
         if self.image_viewer:
             self.image_viewer.remove_data_point(item["pos"][0], item["pos"][1], item["color"])
         self.data_points[self.selected_image.get()].pop(indexes[0])
         save_data_points(self.data_points)
         self.update_data_point_selector()
-        self.data_point_selector.toggle_dropdown()
+        # self.data_point_selector.toggle_dropdown()
 
-    def data_point_selector_add__(self, name, color):
-        self.data_point_selector.items.append((name, color))
-        self.data_point_selector.items = sorted(self.data_point_selector.items, key = lambda item: item[0])
-
+    # def data_point_selector_add__(self, name, color):
+    #     self.data_point_selector.items.append((name, color))
+    #     self.data_point_selector.items = sorted(self.data_point_selector.items, key = lambda item: item[0])
+    #     self.data_point_selector
     
     def handle_final_data_point_adder__(self, img, name, color, pos):
         # print(f"handle final data point adder called {img}, {name}, {color}, {pos}")
@@ -119,21 +142,26 @@ class MainGui(tk.Tk):
             if item["name"] == name:
                 messagebox.showwarning("Duplicate Name", "You are trying to register a date twice under the same image (please change name/date)")
                 return # because the name already exists
-        self.data_point_selector_add__(name, color)
+        # self.data_point_selector_add__(name, color)
         self.data_points[img].append({"name" : name, "color" : color, "pos" : pos})
         save_data_points(self.data_points)
+        self.update_data_point_selector() 
+        self.data_point_selector.vars[name].set(True)
 
-    def handle_final_data_point_editer__(self, index, img, name, color, pos):
+    def handle_final_data_point_editer__(self, index, img, name, color, canvas_data_point, pos):
         # print(f"handle final data point adder called {img}, {name}, {color}, {pos}")
+        if canvas_data_point is not None:
+            self.manual_remove_data_point_on_canvas(*canvas_data_point)
         if pos is None: return
         self.data_points[img][index] = {"name" : name, "color" : color, "pos" : pos }
         save_data_points(self.data_points)
         self.update_data_point_selector()
+        self.data_point_selector.vars[name].set(True)
 
 
     def add_data_point(self, event=None):
-        if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
-            self.data_point_selector.popup.destroy()
+        # if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
+        #     self.data_point_selector.popup.destroy()
         result = get_name_and_color(self)
         if result:
             name, color = result
@@ -145,7 +173,7 @@ class MainGui(tk.Tk):
                 color
             )
             self.image_viewer.pos_input_fcn = pos_func
-            self.toggle_data_points_off()
+            # self.toggle_data_points_off()
             self.image_viewer.togle_motion_picker()
 
     def edit_data_point(self, name):
@@ -159,9 +187,15 @@ class MainGui(tk.Tk):
         if index == -1: return
         print("index is", index)
         print(self.data_points[img][index])
-        if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
-            self.data_point_selector.popup.destroy()
+        # if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
+        #     self.data_point_selector.popup.destroy()
+        canvas_data_point = self.find_canvas_point_data(name)
+        if canvas_data_point is not None:
+            canvas_data_point = (canvas_data_point["pos"][0], canvas_data_point["pos"][1], canvas_data_point["color"])
+
         self.data_point_selector.vars[name].set(False)
+        if canvas_data_point is not None:
+            self.manual_draw_data_point_on_canvas(*canvas_data_point) 
         result = get_name_and_color(self, name = name, color = self.data_points[img][index]["color"])
         if result:
             name, color = result
@@ -170,7 +204,8 @@ class MainGui(tk.Tk):
                 index,
                 img,
                 name,
-                color
+                color,
+                canvas_data_point
             )
             self.image_viewer.pos_input_fcn = pos_func
             self.image_viewer.togle_motion_picker()
@@ -186,26 +221,34 @@ class MainGui(tk.Tk):
             if len(tags) > 0 and tags[0].startswith("data_point"):
                 self.image_viewer.edit_data_point_radius(item_id, radi)
     
+    def find_canvas_point_data(self, name):
+        if self.image_viewer is None: return None
+        img = self.selected_image.get()
+        for pt in self.data_points[img]:
+            if name == pt["name"]:
+                return pt
+        return None
+
+    def manual_remove_data_point_on_canvas(self, x, y, color):
+        if (x, y, color) in self.image_viewer.data_draw_points:
+            self.image_viewer.data_draw_points.remove((x, y, color))
+            self.image_viewer.remove_data_point(x, y, color) 
+
+    def manual_draw_data_point_on_canvas(self, x, y, color):
+        if (x, y, color) not in self.image_viewer.data_draw_points:
+            self.image_viewer.data_draw_points.append((x, y, color))
+            self.image_viewer.draw_data_point(x, y, color, radius = self.point_radius.get()) 
+
     def draw_data_point(self, name):
         state = self.data_point_selector.vars[name].get()
         print(f"{name} is now {'ON' if state else 'OFF'}")
         if self.image_viewer is None: return
-        img = self.selected_image.get()
-        data = None
-        for pt in self.data_points[img]:
-            if name == pt["name"]:
-                data = pt
-                break
+        data = self.find_canvas_point_data(name)
         if data is None: return
         if not state:
-            if (data['pos'][0], data['pos'][1], data['color']) in self.image_viewer.data_draw_points:
-                self.image_viewer.data_draw_points.remove((data['pos'][0], data['pos'][1], data['color']))
-                self.image_viewer.remove_data_point(data['pos'][0], data['pos'][1], data['color']) 
-                
+            self.manual_remove_data_point_on_canvas(data['pos'][0], data['pos'][1], data['color'])
         else:
-            if (data['pos'][0], data['pos'][1], data['color']) not in self.image_viewer.data_draw_points:
-                self.image_viewer.data_draw_points.append((data['pos'][0], data['pos'][1], data['color']))
-                self.image_viewer.draw_data_point(data['pos'][0], data['pos'][1], data['color'], radius = self.point_radius.get()) 
+            self.manual_draw_data_point_on_canvas(data['pos'][0], data['pos'][1], data['color'])
         # self.image_viewer.show_image()
     
     def toggle_data_points_off(self):
@@ -228,6 +271,22 @@ class MainGui(tk.Tk):
             return
         self.combo_box["values"] = self.images
         
+    def save_canvas(self):
+        if self.image_viewer is None: return
+
+        file_path = fd.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG file", "*.png"), ("All Files", "*.*")]
+        )
+
+        if not file_path:
+            return
+        
+        img = self.selected_image.get()
+        data_pts = self.data_points[img]
+
+        img = self.image_viewer.get_image__(self.point_radius.get(), data_pts)
+        img.save(file_path)
 
     def make_image_selector(self):
         selected = tk.StringVar()
@@ -257,7 +316,7 @@ class MainGui(tk.Tk):
             # destroy current zoom image viewer
             self.image_viewer.destroy()
         self.image_viewer = CanvasImage(self, img_path)
-        self.image_viewer.grid(row=1, column=0)
+        self.image_viewer.grid(row=1, column=1)
         self.data_point_selector.vars = {}
         # self.image_viewer.pack(side="top", fill="both", expand=True)
 
@@ -267,6 +326,11 @@ class MainGui(tk.Tk):
             return
         self.image_viewer.zoom_in_option = not self.image_viewer.zoom_in_option
         self.image_viewer.zoom_out_option = False
+        if(self.image_viewer.zoom_in_option):
+            self.zoom_in_button.config(image=self.zoom_in_activated_icon)
+        else:
+            self.zoom_in_button.config(image=self.zoom_in_icon)
+
         try:
             self.image_viewer.canvas.config(cursor="zoom-in" if self.image_viewer.zoom_in_option else "")
         except tk.TclError:
@@ -278,6 +342,10 @@ class MainGui(tk.Tk):
             return
         self.image_viewer.zoom_out_option = not self.image_viewer.zoom_out_option
         self.image_viewer.zoom_in_option = False
+        if(self.image_viewer.zoom_out_option):
+            self.zoom_out_button.config(image=self.zoom_out_activated_icon)
+        else:
+            self.zoom_out_button.config(image=self.zoom_out_icon)
         try:
             self.image_viewer.canvas.config(cursor="zoom-out" if self.image_viewer.zoom_out_option else "")
         except tk.TclError:
@@ -290,9 +358,9 @@ class MainGui(tk.Tk):
         self.update_data_point_selector()
 
     def register_new_image(self):
-        if hasattr(self, "data_point_selector") and self.data_point_selector is not None:
-            if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
-                self.data_point_selector.popup.destroy()
+        # if hasattr(self, "data_point_selector") and self.data_point_selector is not None:
+        #     if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
+        #         self.data_point_selector.popup.destroy()
         filetypes = (
             ('Image files', ('*.png', '*.jpeg', '*.jpg', '*.tiff', '*.bmp', '*.webp', '*.ico', '*.ppm', '*.xbm')),
             ('All files', '*.*')
