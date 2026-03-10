@@ -1,14 +1,13 @@
-# DEPRECIATION WARNING
 # This class was previously a toggled drop down menu
 # It has been remade to be a multi select column with different buttons
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog
-from PIL import Image
-import io
+from .collapsable_note import CollapsableNote
+from functools import partial
 
-class MultiSelectDropdown:
+# This is the side table that has the different data points and the "edit" "delete" and soon notes function
+class MultiSelectSideTable:
     def __init__(self, parent, items, text = "Select Items", row=1, column=0):
         self.parent = parent
         self.items = items
@@ -22,6 +21,8 @@ class MultiSelectDropdown:
         self.edit_points_fcn = self.edit_button
         self.delete_points_fcn = self.delete_button
         self.make_dropdown(row=row, column=column)
+        self.notes_callback = None
+        self.get_notes_callback = None
 
     def make_dropdown(self, row=1, column=0):
         if self.sidebar and self.sidebar.winfo_exists():
@@ -75,8 +76,15 @@ class MultiSelectDropdown:
             delete_button.pack(side="right")
             edit_button = tk.Button(row, text="Edit", command = lambda n=name : self.edit_points_fcn(n))
             edit_button.pack(side="right")
-
-
+            
+            notes_row = ttk.Frame(self.sidebar)
+            notes_row.pack(fill='x', padx=5, pady=2)
+            note_handler = CollapsableNote(notes_row, None)
+            if self.notes_callback is not None:
+                note_handler.callback = partial(self.notes_callback, name)
+            if self.get_notes_callback:
+                note_handler.text.insert(tk.END, self.get_notes_callback(name))
+            note_handler.pack(fill="x", padx=10, pady=10)
         self.bind(self.bind_func)
 
 

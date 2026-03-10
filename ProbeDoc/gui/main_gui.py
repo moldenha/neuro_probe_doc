@@ -4,9 +4,8 @@ from tkinter import messagebox
 from tkinter import filedialog as fd
 from .zoom_image_viewer import ZoomImageViewer
 from .canvas_img import CanvasImage
-from .multi_selector_dropdown import MultiSelectDropdown
-from .name_color_dialog import get_name_and_color
-from .notes_popup import NotesPopup
+from .multi_selector_side_table import MultiSelectSideTable
+from .name_color_dialog import get_name_and_color, get_name_and_color_edit
 from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path
 from ..utils.config import config
 from pathlib import Path
@@ -33,8 +32,10 @@ class MainGui(tk.Tk):
         assert len(self.images) == len(set(self.images)), "Error, you have an image in resources and in the images list that is duplicated"
         self.update_image_selector()
         self.check_data_points()
-        self.data_point_selector = MultiSelectDropdown(self, [], "View Points")
+        self.data_point_selector = MultiSelectSideTable(self, [], "View Points")
         self.data_point_selector.bind_func = self.draw_data_point
+        self.data_point_selector.notes_callback = self.edit_note__
+        self.data_point_selector.get_notes_callback = self.get_note__
         self.data_point_selector.edit_points_fcn = self.edit_data_point
         self.data_point_selector.delete_points_fcn = self.delete_data_point
         self.update_data_point_selector()
@@ -74,7 +75,6 @@ class MainGui(tk.Tk):
         )
         self.point_radius.pack(side = 'left', padx=5, anchor="nw")
         self.point_radius.set(5.0)
-        self.notes_popup = NotesPopup(self.toolbar)
         self.menubar = tk.Menu(self)
         self.config(menu=self.menubar)
         self.options_menu = tk.Menu(self.menubar, tearoff=0)
@@ -122,6 +122,8 @@ class MainGui(tk.Tk):
         indexes = [i for i, x in enumerate(l) if x["name"] == name]
         if len(indexes) == 0:
             return
+        if not messagebox.askyesno("Confirm Delete", f"Are you sure that you would like to delete {name} data point?"):
+            return
         item = self.data_points[self.selected_image.get()][indexes[0]]
         if self.image_viewer:
             self.image_viewer.remove_data_point(item["pos"][0], item["pos"][1], item["color"])
@@ -135,6 +137,22 @@ class MainGui(tk.Tk):
     #     self.data_point_selector.items = sorted(self.data_point_selector.items, key = lambda item: item[0])
     #     self.data_point_selector
     
+    def edit_note__(self, name, note):
+        l = self.data_points[self.selected_image.get()]
+        indexes = [i for i, x in enumerate(l) if x["name"] == name]
+        if len(indexes) == 0:
+            return
+        self.data_points[self.selected_image.get()][indexes[0]]["notes"] = note
+        save_data_points(self.data_points)
+    
+    def get_note__(self, name):
+        l = self.data_points[self.selected_image.get()]
+        indexes = [i for i, x in enumerate(l) if x["name"] == name]
+        if len(indexes) == 0:
+            return ""
+        return self.data_points[self.selected_image.get()][indexes[0]].get("notes", "")
+
+
     def handle_final_data_point_adder__(self, img, name, color, pos):
         # print(f"handle final data point adder called {img}, {name}, {color}, {pos}")
         if pos is None: return
@@ -143,17 +161,21 @@ class MainGui(tk.Tk):
                 messagebox.showwarning("Duplicate Name", "You are trying to register a date twice under the same image (please change name/date)")
                 return # because the name already exists
         # self.data_point_selector_add__(name, color)
-        self.data_points[img].append({"name" : name, "color" : color, "pos" : pos})
+        self.data_points[img].append({"name" : name, "color" : color, "pos" : pos, "notes" : ""})
         save_data_points(self.data_points)
         self.update_data_point_selector() 
         self.data_point_selector.vars[name].set(True)
 
     def handle_final_data_point_editer__(self, index, img, name, color, canvas_data_point, pos):
         # print(f"handle final data point adder called {img}, {name}, {color}, {pos}")
+        print("handling final data point edit")
         if canvas_data_point is not None:
             self.manual_remove_data_point_on_canvas(*canvas_data_point)
         if pos is None: return
-        self.data_points[img][index] = {"name" : name, "color" : color, "pos" : pos }
+        print(self.data_points[img][index])
+        n_notes = self.data_points[img][index].get("notes", "")
+        print(n_notes)
+        self.data_points[img][index] = {"name" : name, "color" : color, "pos" : pos, "notes" : n_notes}
         save_data_points(self.data_points)
         self.update_data_point_selector()
         self.data_point_selector.vars[name].set(True)
@@ -192,13 +214,13 @@ class MainGui(tk.Tk):
         canvas_data_point = self.find_canvas_point_data(name)
         if canvas_data_point is not None:
             canvas_data_point = (canvas_data_point["pos"][0], canvas_data_point["pos"][1], canvas_data_point["color"])
-
+        
         self.data_point_selector.vars[name].set(False)
         if canvas_data_point is not None:
             self.manual_draw_data_point_on_canvas(*canvas_data_point) 
-        result = get_name_and_color(self, name = name, color = self.data_points[img][index]["color"])
-        if result:
-            name, color = result
+        result = get_name_and_color_edit(self, name = name, color = self.data_points[img][index]["color"])
+        if result and result[2]:
+            name, color, change_loc = result
             pos_func = partial(
                 self.handle_final_data_point_editer__,
                 index,
@@ -209,6 +231,12 @@ class MainGui(tk.Tk):
             )
             self.image_viewer.pos_input_fcn = pos_func
             self.image_viewer.togle_motion_picker()
+        if result and not result[2]:
+            name, color, change_loc = result
+            self.handle_final_data_point_editer__(index, img, name, color, canvas_data_point,
+                                                  self.data_points[img][index]["pos"])
+        else:
+            self.update_data_point_selector()
     
     def update_data_point_size(self, value):
         radi = float(value)

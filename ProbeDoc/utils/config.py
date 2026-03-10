@@ -11,7 +11,6 @@ config = {
         "ImageListsFile"        : os.path.join(resource_directory, "images.json"),
         "ImageOriginalListsFile": os.path.join(resource_directory, "images_original.json"),
         "ImagesDirectory"       : os.path.join(resource_directory, "images"),
-        "NotesFile"             : os.path.join(resource_directory, "notes.txt"),
         "ZoomOutImg"            : os.path.join(resource_directory, "zoom_out.png"),
         "ZoomInImg"             : os.path.join(resource_directory, "zoom_in.png"),
         "ZoomOutImgActivated"   : os.path.join(resource_directory, "zoom_out_activated.png"),

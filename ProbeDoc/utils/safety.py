@@ -35,15 +35,15 @@ def set_always_sync_on_startup(new_state_ : tk.BooleanVar):
     config["StartupBackupSync"] = new_state 
     safe_json_store(config["SettingsFile"], settings)
 
-def load_notes():
-    if os.path.exists(config["NotesFile"]):
-        with open(config["NotesFile"], 'r') as f:
-            return f.read()
-    return ""
+# def load_notes():
+#     if os.path.exists(config["NotesFile"]):
+#         with open(config["NotesFile"], 'r') as f:
+#             return f.read()
+#     return ""
 
-def save_notes(content):
-    with open(config["NotesFile"], 'w') as f:
-        f.write(content)
+# def save_notes(content):
+#     with open(config["NotesFile"], 'w') as f:
+#         f.write(content)
 
 def safe_copy_file(source_file : str, destination_file : str):
     try:
@@ -113,9 +113,9 @@ def external_sync_data_points():
     destination_file = os.path.join(destination_dir, "data_points.json")
     source_file = config["SavePointsFile"]
     safe_copy_file(source_file, destination_file)
-    destination_file = os.path.join(destination_dir, "notes.txt")
-    source_file = config["NotesFile"]
-    safe_copy_file(source_file, destination_file)
+    # destination_file = os.path.join(destination_dir, "notes.txt")
+    # source_file = config["NotesFile"]
+    # safe_copy_file(source_file, destination_file)
 
 def external_sync_images():
     if not config.get("PerformExternalSync", False):
@@ -131,7 +131,12 @@ def external_sync_images():
 
 
 def get_data_points():
-    return safe_json_load(config["SavePointsFile"])
+    points_file = safe_json_load(config["SavePointsFile"])
+    for key in points_file.keys():
+        for entry in points_file[key]:
+             if "notes" not in entry.keys():
+                 entry["notes"] = ""
+    return points_file
 
 def ask_external_sync():
     if messagebox.askyesno("Confirm Sync", "Would you like to sync the data upon exit?"):

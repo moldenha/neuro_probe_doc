@@ -8,6 +8,7 @@ def main():
         root.destroy()
     root = MainGui()
     root.protocol("WM_DELETE_WINDOW", on_close)
+    root.bind_all("<Button-1>", lambda event: event.widget.focus_set())
     root.mainloop()
 
 

@@ -5,6 +5,5 @@ ProbeDoc/resources/images/*
 ProbeDoc/resources/data_points.json
 ProbeDoc/resources/images.json
 ProbeDoc/resources/images_original.json
-ProbeDoc/resources/notes.txt
 ProbeDoc/resources/settings.json
 ProbeDoc/utils/__pycache__
