@@ -71,7 +71,7 @@ class MultiSelectSideTable:
             dot.create_oval(2, 2, 10, 10, fill=color)
             dot.pack(side="left", padx=5)
 
-            ttk.Label(row, text=name).pack(side="left")
+            ttk.Label(row, text=name, font=("Helvetica", 12)).pack(side="left")
             delete_button = tk.Button(row, text="Delete", command = lambda n=name : self.delete_points_fcn(n))
             delete_button.pack(side="right")
             edit_button = tk.Button(row, text="Edit", command = lambda n=name : self.edit_points_fcn(n))

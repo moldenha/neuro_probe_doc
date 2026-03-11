@@ -81,6 +81,7 @@ def backup_from_sync():
     destination_dir = config.get("ExternalSyncDir", None)
     if not config.get("PerformExternalSync", False) or not destination_dir:
         messagebox.warning("Unable to sync", "Sync directory does not exist, or was not specified, unable to use as backup")
+        return
     safe_copy_dir(source_dir = destination_dir, destination_dir = config["ResourceDirectory"], relative_ignore = ["settings.json"])
 
 def set_external_sync():
@@ -197,6 +198,7 @@ def add_image(source_image_path : str):
             return None
     return None
 
+
 # This takes a single image name, and return's its path
 def get_image_path(img_name : str):
     directory = config["ImagesDirectory"]
@@ -205,6 +207,34 @@ def get_image_path(img_name : str):
         if Path(img).stem == img_name:
             return os.path.join(directory, img)
     return None
+
+def delete_image(img_name : str):
+    path = get_image_path(img_name)
+    if path is None:
+        return
+    images = [Path(file_path).stem for file_path in load_image_paths()]
+    data_points = get_data_points()
+    if img_name not in data_points.keys():
+        return
+    if not messagebox.askyesno("Confirm Delete", f"Are you sure you would like to delete {img_name}?"):
+        return
+    if not messagebox.askyesno("Confirm Delete", f"Are you sure that you're sure about this? You are going to delete {len(data_points[img_name])} points"):
+        return
+    messagebox.showinfo(f"Deleting {img_name}...", "Alright, fuck it")
+    try:
+        os.remove(path)
+        print("deleted file")
+    except OSError as e:
+        print(f"Error: {e.strerror}")
+    del data_points[img_name]
+    n_images = [file_path for file_path in load_image_paths() if Path(file_path).stem != img_name]
+    n_original_images = [file_path for file_path in load_original_image_paths() if Path(file_path).stem != img_name]
+    save_data_points(data_points)
+    safe_json_store(config["ImageListsFile"], n_images)
+    safe_json_store(config["ImageOriginalListsFile"], n_original_images)
+
+
+
 
 # The point of this function is to make sure all the resources and everything is set
 # Before accidentally changing any data

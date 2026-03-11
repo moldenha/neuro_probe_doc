@@ -6,7 +6,8 @@ from .zoom_image_viewer import ZoomImageViewer
 from .canvas_img import CanvasImage
 from .multi_selector_side_table import MultiSelectSideTable
 from .name_color_dialog import get_name_and_color, get_name_and_color_edit
-from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path
+from .ask_custom import askcustom
+from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path, delete_image
 from ..utils.config import config
 from pathlib import Path
 from PIL import Image, ImageTk
@@ -28,7 +29,16 @@ class MainGui(tk.Tk):
         self.combo_box = None
         if self.images == {} or len(self.images) == 0:
             self.images = []
-            self.register_new_image()
+            img_or_sync = askcustom(self, "No Images Found", "No images have been registered yet, please either sync with an external directory that has images, or select an image",
+                                    "Sync", "Select Image")
+            if img_or_sync == "Sync":
+                set_external_sync()
+                backup_from_sync()
+            else:
+                self.register_new_image()
+            if len(self.images) == 0:
+                messagebox.showerror("No Images Found", 
+                            "Error, no images have been registered, unable to continue, either sync a directory or choose an image")
         assert len(self.images) == len(set(self.images)), "Error, you have an image in resources and in the images list that is duplicated"
         self.update_image_selector()
         self.check_data_points()
@@ -88,6 +98,13 @@ class MainGui(tk.Tk):
                                           variable = self.option_always_sync_on_startup_var,
                                           command = lambda n=self.option_always_sync_on_startup_var: set_always_sync_on_startup(n))
         
+        self.options_menu.add_separator()
+
+        self.delete_menu = tk.Menu(self.options_menu, tearoff=0)
+        for img in self.images:
+            self.delete_menu.add_command(label=img, command= lambda : self.delete_image__(img))
+        self.options_menu.add_cascade(label="Delete Image", menu = self.delete_menu)
+
 
         self.file_menu = tk.Menu(self.menubar, tearoff=0)
         self.file_menu.add_command(label="Export", command=self.save_canvas)
@@ -335,6 +352,8 @@ class MainGui(tk.Tk):
     
     def display_new_image(self):
         self.toggle_data_points_off()
+        if not hasattr(self, "selected_image"):
+            return
         img_path = get_image_path(self.selected_image.get())
         if img_path is None:
             messagebox.showwarning("Image Not Found", f"The image {img_path} does not exist!")
@@ -384,6 +403,41 @@ class MainGui(tk.Tk):
         print(f"Selected: {self.selected_image.get()}")
         self.display_new_image()
         self.update_data_point_selector()
+    
+    def update_delete_images_menu(self):
+        if not hasattr(self, "delete_menu"):
+            return
+        self.delete_menu.delete(0, tk.END)
+        for img in self.images:
+            self.delete_menu.add_command(label=img, command= lambda : self.delete_image__(img))
+
+
+    def delete_image__(self, name):
+        delete_image(name)
+        self.images = [Path(file_path).stem for file_path in load_image_paths()]
+        self.data_points = get_data_points()
+        if self.images == {} or len(self.images) == 0:
+            self.images = []
+            img_or_sync = askcustom(self, "No Images Found", "No images have been registered yet, please either sync with an external directory that has images, or select an image",
+                                    "Sync", "Select Image")
+            if img_or_sync == "Sync":
+                set_external_sync()
+                backup_from_sync()
+            else:
+                self.register_new_image()
+            if len(self.images) == 0:
+                messagebox.showerror("No Images Found", 
+                            "Error, no images have been registered, unable to continue, either sync a directory or choose an image")
+        assert len(self.images) == len(set(self.images)), "Error, you have an image in resources and in the images list that is duplicated"
+        if self.selected_image.get() == name:
+            self.selected_image.set(self.images[0])
+        self.combo_box.configure(values=self.images)
+        self.update_image_selector()
+        self.check_data_points()
+        self.update_delete_images_menu()
+        self.display_new_image()
+        self.update_data_point_selector()
+ 
 
     def register_new_image(self):
         # if hasattr(self, "data_point_selector") and self.data_point_selector is not None:
@@ -409,7 +463,11 @@ class MainGui(tk.Tk):
                 self.images.append(Path(new_image).stem)
                 self.update_image_selector()
                 self.check_data_points()
-
+                self.update_delete_images_menu()
+                if hasattr(self, "selected_image"):
+                    self.selected_image.set(Path(new_image).stem)
+                    self.display_new_image()
+                    self.update_data_point_selector()
 
 if __name__ == '__main__':
     root = MainGui()
