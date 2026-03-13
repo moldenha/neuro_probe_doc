@@ -4,7 +4,9 @@
 import tkinter as tk
 from tkinter import ttk
 from .collapsable_note import CollapsableNote
+from .scrollable_frame import ScrollableFrame
 from functools import partial
+
 
 # This is the side table that has the different data points and the "edit" "delete" and soon notes function
 class MultiSelectSideTable:
@@ -23,17 +25,23 @@ class MultiSelectSideTable:
         self.make_dropdown(row=row, column=column)
         self.notes_callback = None
         self.get_notes_callback = None
+        self.max_width = 70
 
     def make_dropdown(self, row=1, column=0):
         if self.sidebar and self.sidebar.winfo_exists():
             self.sidebar.destroy()
         
-        self.sidebar = ttk.Frame(self.parent)
-        self.sidebar.grid(row=row, column=column)
+        self.sidebar_ = ScrollableFrame(self.parent)
+        self.sidebar_.grid(row=row, column=column)
         # self.sidebar.grid(row=row, column=column)
-        self.sidebar.grid(sticky="nw")
-        self.sidebar.rowconfigure(0, weight=0)  
-        self.sidebar.columnconfigure(0, weight=1) # only columns expandable
+        self.sidebar_.grid(sticky="ns")
+        self.sidebar_.rowconfigure(0, weight=0)  
+        self.sidebar_.columnconfigure(0, weight=1) # only columns expandable
+        self.sidebar_.configure(width=300)
+        self.sidebar_.canvas.configure(width=300)
+        self.sidebar_.grid_propagate(False)
+        self.sidebar = self.sidebar_.scrollable_frame
+        
         # self.sidebar.pack(fill="both", expand=True)
          # ---- Select All ----
         select_all_var = tk.BooleanVar()

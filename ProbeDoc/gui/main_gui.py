@@ -113,6 +113,7 @@ class MainGui(tk.Tk):
         self.menubar.add_cascade(label="Options", menu=self.options_menu)
 
         self.update_data_point_selector()
+        self.status_window = None
 
 
     def update_data_point_selector(self):
@@ -181,6 +182,7 @@ class MainGui(tk.Tk):
         self.data_points[img].append({"name" : name, "color" : color, "pos" : pos, "notes" : ""})
         save_data_points(self.data_points)
         self.update_data_point_selector() 
+        self.hide_status()
         self.data_point_selector.vars[name].set(True)
 
     def handle_final_data_point_editer__(self, index, img, name, color, canvas_data_point, pos):
@@ -196,6 +198,7 @@ class MainGui(tk.Tk):
         save_data_points(self.data_points)
         self.update_data_point_selector()
         self.data_point_selector.vars[name].set(True)
+        self.hide_status()
 
 
     def add_data_point(self, event=None):
@@ -204,6 +207,8 @@ class MainGui(tk.Tk):
         result = get_name_and_color(self)
         if result:
             name, color = result
+            self.show_status(f"Currently adding point {name} position")
+            self.image_viewer.canvas.focus_force()
             img = self.selected_image.get()
             pos_func = partial(
                 self.handle_final_data_point_adder__,
@@ -213,7 +218,10 @@ class MainGui(tk.Tk):
             )
             self.image_viewer.pos_input_fcn = pos_func
             # self.toggle_data_points_off()
-            self.image_viewer.togle_motion_picker()
+            img = self.selected_image.get()
+            data_pts = self.data_points[img]
+
+            self.image_viewer.togle_motion_picker(self.point_radius.get(), data_pts)
 
     def edit_data_point(self, name):
         img = self.selected_image.get()
@@ -234,10 +242,12 @@ class MainGui(tk.Tk):
         
         self.data_point_selector.vars[name].set(False)
         if canvas_data_point is not None:
-            self.manual_draw_data_point_on_canvas(*canvas_data_point) 
+            self.manual_draw_data_point_on_canvas(*canvas_data_point, name) 
         result = get_name_and_color_edit(self, name = name, color = self.data_points[img][index]["color"])
         if result and result[2]:
             name, color, change_loc = result
+            self.show_status(f"Currently editing point {name} position")
+            self.image_viewer.canvas.focus_force()
             pos_func = partial(
                 self.handle_final_data_point_editer__,
                 index,
@@ -247,7 +257,8 @@ class MainGui(tk.Tk):
                 canvas_data_point
             )
             self.image_viewer.pos_input_fcn = pos_func
-            self.image_viewer.togle_motion_picker()
+            data_pts = self.data_points[img]
+            self.image_viewer.togle_motion_picker(self.point_radius.get(), data_pts)
         if result and not result[2]:
             name, color, change_loc = result
             self.handle_final_data_point_editer__(index, img, name, color, canvas_data_point,
@@ -279,10 +290,10 @@ class MainGui(tk.Tk):
             self.image_viewer.data_draw_points.remove((x, y, color))
             self.image_viewer.remove_data_point(x, y, color) 
 
-    def manual_draw_data_point_on_canvas(self, x, y, color):
+    def manual_draw_data_point_on_canvas(self, x, y, color, name):
         if (x, y, color) not in self.image_viewer.data_draw_points:
             self.image_viewer.data_draw_points.append((x, y, color))
-            self.image_viewer.draw_data_point(x, y, color, radius = self.point_radius.get()) 
+            self.image_viewer.draw_data_point(x, y, color, radius = self.point_radius.get(), name_tag=name) 
 
     def draw_data_point(self, name):
         state = self.data_point_selector.vars[name].get()
@@ -293,7 +304,7 @@ class MainGui(tk.Tk):
         if not state:
             self.manual_remove_data_point_on_canvas(data['pos'][0], data['pos'][1], data['color'])
         else:
-            self.manual_draw_data_point_on_canvas(data['pos'][0], data['pos'][1], data['color'])
+            self.manual_draw_data_point_on_canvas(data['pos'][0], data['pos'][1], data['color'], name)
         # self.image_viewer.show_image()
     
     def toggle_data_points_off(self):
@@ -315,6 +326,9 @@ class MainGui(tk.Tk):
             self.make_image_selector()
             return
         self.combo_box["values"] = self.images
+        max_len = max(len(v) for v in self.images)
+        self.combo_box.configure(width=max_len)
+
         
     def save_canvas(self):
         if self.image_viewer is None: return
@@ -336,6 +350,7 @@ class MainGui(tk.Tk):
     def make_image_selector(self):
         selected = tk.StringVar()
         update_option = (self.selected_image is None)
+
         if update_option:
             self.selected_image = tk.StringVar()
         self.combo_box = ttk.Combobox(
@@ -347,6 +362,8 @@ class MainGui(tk.Tk):
         if update_option:
             self.selected_image.set(self.images[0])
         # self.combo_box.grid(row=0, column=0)
+        max_len = max(len(v) for v in self.images)
+        self.combo_box.configure(width=max_len)
         self.combo_box.pack(side="left", padx=5, anchor="nw")
         self.combo_box.bind("<<ComboboxSelected>>", self.on_image_selection__)
     
@@ -373,6 +390,7 @@ class MainGui(tk.Tk):
             return
         self.image_viewer.zoom_in_option = not self.image_viewer.zoom_in_option
         self.image_viewer.zoom_out_option = False
+        self.zoom_out_button.config(image=self.zoom_out_icon)
         if(self.image_viewer.zoom_in_option):
             self.zoom_in_button.config(image=self.zoom_in_activated_icon)
         else:
@@ -389,6 +407,7 @@ class MainGui(tk.Tk):
             return
         self.image_viewer.zoom_out_option = not self.image_viewer.zoom_out_option
         self.image_viewer.zoom_in_option = False
+        self.zoom_in_button.config(image=self.zoom_in_icon)
         if(self.image_viewer.zoom_out_option):
             self.zoom_out_button.config(image=self.zoom_out_activated_icon)
         else:
@@ -468,6 +487,42 @@ class MainGui(tk.Tk):
                     self.selected_image.set(Path(new_image).stem)
                     self.display_new_image()
                     self.update_data_point_selector()
+    
+    def show_status(self, text):
+        if self.status_window and self.status_window.winfo_exists():
+            return
+
+        self.status_window = tk.Toplevel(self)
+
+        self.status_window.overrideredirect(True)
+        self.status_window.attributes("-topmost", True)
+
+        label = ttk.Label(self.status_window, text=text, padding=20)
+        label.pack()
+
+        self.status_window.update_idletasks()
+
+        w = label.winfo_reqwidth()
+        h = label.winfo_reqheight()
+
+        self.update_idletasks()
+
+        # x = self.winfo_rootx()
+        # y = self.winfo_rooty()
+        parent_w = self.winfo_width()
+        popup_x = (parent_w // 2) - (w // 2)
+        # popup_x = x + (parent_w // 2) - (w // 2)
+        # popup_y = y - h - 10
+
+        self.status_window.geometry(f"{w}x{h}+{popup_x}+0")
+        # keep above the main window
+        self.status_window.transient(self)
+
+    def hide_status(self):
+        if self.status_window and self.status_window.winfo_exists():
+            self.status_window.destroy()
+            self.status_window = None
+
 
 if __name__ == '__main__':
     root = MainGui()

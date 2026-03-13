@@ -19,6 +19,10 @@ Obviously some stuff was changed:
 - A way to click and register the place of the image
 - A way to get the coordinate of the place over the image clicked
 - A way to have it magnify as the cursor moves over the image (use the function that auto scrolls)
+- A way to export the image to a PIL image
+- A way to place data points
+- A way to have hovering text with names for all data points
+
 
 Stuff to add:
     (if more features to add, will be described here)
@@ -129,6 +133,8 @@ class CanvasImage:
         self.zoom_in_option = False
         self.zoom_out_option = False
         self.pos_input_fcn = None
+        self.canvas.tag_bind("data_point", "<Enter>", self.show_tooltip)
+        self.canvas.tag_bind("data_point", "<Leave>", self.hide_tooltip)
 
 
 
@@ -376,7 +382,7 @@ class CanvasImage:
         top = img_y - crop_size // 2
         right = img_x + crop_size // 2
         bottom = img_y + crop_size // 2
-
+        
         cropped = self.motion_image__.crop((left, top, right, bottom))
         resized = cropped.resize((size, size), self.__filter)
         
@@ -408,23 +414,30 @@ class CanvasImage:
     # NOTE: The reason this is a function to togle the event on and off instead of a variable inside of
     # self.motion_magnifier__ is for performance, this way the function is only called when absolutely needed
     # Stack calls in any language would add an un-needed performance hinderance
-    def togle_motion_picker(self):
+    def togle_motion_picker(self, radius = None, data_points = None):
         print("togle motion picker called")
         self.zoom_in_option = False
         self.zoom_outoption = False
+
         if getattr(self, "magnifier_on", False):
             self.canvas.unbind("<Motion>")
             self.canvas.config(cursor="")
             self.canvas.delete("magnifier")
             self.magnifier_on = False
             self.motion_image__ = None
+            self.temp_magnifier_img__ = None
         else:
+            if radius and data_points:
+                self.temp_magnifier_img__ = self.get_image__(radius, data_points)
             self.canvas.bind("<Motion>", self.motion_magnifier__)
             self.canvas.config(cursor="crosshair")  # Big plus style
             self.magnifier_on = True
-            self.motion_image__ = Image.open(self.path)
+            if getattr(self, "temp_magnifier_img__", None) is not None:
+                self.motion_image__ = self.temp_magnifier_img__
+            else:
+                self.motion_image__ = Image.open(self.path)
 
-    def draw_data_point(self, img_x, img_y, color, radius=5):
+    def draw_data_point(self, img_x, img_y, color, radius=5, name_tag="Name"):
         """
         Draw a colored dot at image pixel coordinate (img_x, img_y)
         """
@@ -448,7 +461,7 @@ class CanvasImage:
             fill=color,
             outline="black",
             width=1,
-            tags=f"data_point_{img_x}_{img_y}_{color}"
+            tags=(f"data_point_{img_x}_{img_y}_{color}", "data_point", name_tag)
         )
 
         # items = self.canvas.find_withtag(f"data_point_{img_x}_{img_y}_{color}")
@@ -457,6 +470,37 @@ class CanvasImage:
         # print(self.canvas.coords(items[0]))
         # c_x1, c_
         # print((x1, y1))
+    
+    def hide_tooltip(self, event):
+        if not (hasattr(self, "tooltip_text") and hasattr(self, "tooltip_box")):
+            return
+        if self.tooltip_text:
+            self.canvas.delete(self.tooltip_text)
+        if self.tooltip_box:
+            self.canvas.delete(self.tooltip_box)
+
+    def show_tooltip(self, event):
+        if getattr(self, "magnifier_on", False):
+            return
+        tags = event.widget.gettags("current")
+        text = tags[2]
+
+        self.tooltip_text = self.canvas.create_text(
+            event.x + 10, event.y + 10,
+            text=text,
+            anchor="nw",
+            fill="black"
+        )
+
+        bbox = self.canvas.bbox(self.tooltip_text)
+
+        self.tooltip_box = self.canvas.create_rectangle(
+            bbox,
+            fill="lightyellow",
+            outline="black"
+        )
+
+        self.canvas.tag_lower(self.tooltip_box, self.tooltip_text)
 
     def edit_data_point_radius(self, img_x, img_y, color, new_radius):
         items = self.canvas.find_withtag(f"data_point_{img_x}_{img_y}_{color}")
