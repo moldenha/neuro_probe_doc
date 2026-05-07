@@ -1,6 +1,31 @@
 import tkinter as tk
 from tkinter import ttk, colorchooser
 from datetime import date
+import numpy as np
+
+def get_farthest_color(existing_colors, color_space_size=256):
+    """
+    Generates a new color (RGB) that is far from existing colors.
+    Uses simple randomized sampling to maximize minimum distance.
+    """
+    best_color = None
+    max_min_distance = -1
+    
+    # Randomly sample potential candidates to speed up the process
+    for _ in range(100):
+        # Generate random RGB color
+        candidate = np.random.randint(0, color_space_size, 3)
+        
+        # Calculate minimum distance to any existing color
+        min_dist = min(np.linalg.norm(candidate - c) for c in existing_colors)
+        
+        # Keep the candidate with the highest minimum distance
+        if min_dist > max_min_distance:
+            max_min_distance = min_dist
+            best_color = candidate
+
+    hex_code = f'#{best_color[0]:02x}{best_color[1]:02x}{best_color[2]:02x}'
+    return hex_code
 
 class NameColorDialog:
     def __init__(self, parent, default_name = "", default_color = "#ffffff"):
@@ -146,6 +171,10 @@ class NameColorDialog_edit:
         self.result = None
         self.window.destroy()
 
+
+def get_name_and_color_distinct(parent, name, colors):
+    dialog = NameColorDialog(parent, default_name = name, default_color = get_farthest_color(colors))
+    return dialog.result
 
 def get_name_and_color(parent, name = '', color = '#ffffff'):
     dialog = NameColorDialog(parent, default_name = name, default_color = color)

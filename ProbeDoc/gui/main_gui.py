@@ -5,13 +5,14 @@ from tkinter import filedialog as fd
 from .zoom_image_viewer import ZoomImageViewer
 from .canvas_img import CanvasImage
 from .multi_selector_side_table import MultiSelectSideTable
-from .name_color_dialog import get_name_and_color, get_name_and_color_edit
+from .name_color_dialog import get_name_and_color, get_name_and_color_distinct, get_name_and_color_edit
 from .ask_custom import askcustom
 from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path, delete_image
 from ..utils.config import config
 from pathlib import Path
 from PIL import Image, ImageTk
 from functools import partial
+# import bytes
 
 class MainGui(tk.Tk):
     def __init__(self):
@@ -204,7 +205,20 @@ class MainGui(tk.Tk):
     def add_data_point(self, event=None):
         # if self.data_point_selector.popup and self.data_point_selector.popup.winfo_exists():
         #     self.data_point_selector.popup.destroy()
-        result = get_name_and_color(self)
+        
+        colors = []
+        if len(self.data_points[self.selected_image.get()]) == 0:
+            result = get_name_and_color(self)
+        else:
+            for pt in self.data_points[self.selected_image.get()]:
+                # print(pt['color'])
+                hex_code = pt['color']
+                h = hex_code.lstrip('#')
+                rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+                # rgb = list(bytes.fromhex(pt['color']))
+                colors.append(list(rgb))
+            result = get_name_and_color_distinct(self, '', colors)
+
         if result:
             name, color = result
             self.show_status(f"Currently adding point {name} position")
