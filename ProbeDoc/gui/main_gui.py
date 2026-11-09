@@ -14,6 +14,11 @@ from PIL import Image, ImageTk
 from functools import partial
 # import bytes
 
+'''
+Delete images has a bug where it deletes the wrong image for some reason
+After deleting a point, there was an issue where during the placement of a new point, on the zoom in view, it shows back up
+'''
+
 class MainGui(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -103,7 +108,7 @@ class MainGui(tk.Tk):
 
         self.delete_menu = tk.Menu(self.options_menu, tearoff=0)
         for img in self.images:
-            self.delete_menu.add_command(label=img, command= lambda : self.delete_image__(img))
+            self.delete_menu.add_command(label=img, command=lambda current_img=img: self.delete_image__(current_img))
         self.options_menu.add_cascade(label="Delete Image", menu = self.delete_menu)
 
 
@@ -254,12 +259,13 @@ class MainGui(tk.Tk):
         if canvas_data_point is not None:
             canvas_data_point = (canvas_data_point["pos"][0], canvas_data_point["pos"][1], canvas_data_point["color"])
         
-        self.data_point_selector.vars[name].set(False)
+        # self.data_point_selector.vars[name].set(False)
         if canvas_data_point is not None:
             self.manual_draw_data_point_on_canvas(*canvas_data_point, name) 
         result = get_name_and_color_edit(self, name = name, color = self.data_points[img][index]["color"])
         if result and result[2]:
             name, color, change_loc = result
+            self.data_point_selector.vars[name].set(True)
             self.show_status(f"Currently editing point {name} position")
             self.image_viewer.canvas.focus_force()
             pos_func = partial(
@@ -436,16 +442,17 @@ class MainGui(tk.Tk):
         print(f"Selected: {self.selected_image.get()}")
         self.display_new_image()
         self.update_data_point_selector()
-    
+     
     def update_delete_images_menu(self):
         if not hasattr(self, "delete_menu"):
             return
         self.delete_menu.delete(0, tk.END)
         for img in self.images:
-            self.delete_menu.add_command(label=img, command= lambda : self.delete_image__(img))
+            self.delete_menu.add_command(label=img, command=lambda current_img=img: self.delete_image__(current_img))
 
 
     def delete_image__(self, name):
+        print(f"Delete image called with name {name}")
         delete_image(name)
         self.images = [Path(file_path).stem for file_path in load_image_paths()]
         self.data_points = get_data_points()

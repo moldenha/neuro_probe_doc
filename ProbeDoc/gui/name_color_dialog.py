@@ -70,6 +70,26 @@ class NameColorDialog:
 
         self.date_entry.focus()
 
+        # --- CENTERING CODE START ---
+        self.window.update_idletasks() # Ensure dimensions are calculated
+
+        # Get parent window dimensions and position
+        p_width = parent.winfo_width()
+        p_height = parent.winfo_height()
+        p_x = parent.winfo_rootx()
+        p_y = parent.winfo_rooty()
+
+        # Get dialog dimensions
+        d_width = self.window.winfo_width()
+        d_height = self.window.winfo_height()
+
+        # Calculate center coordinates
+        x = p_x + (p_width // 2) - (d_width // 2)
+        y = p_y + (p_height // 2) - (d_height // 2)
+
+        self.window.geometry(f"+{x}+{y}")
+        # --- CENTERING CODE END ---
+
         # Wait until window closes
         parent.wait_window(self.window)
     
