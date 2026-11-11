@@ -7,7 +7,7 @@ from .canvas_img import CanvasImage
 from .multi_selector_side_table import MultiSelectSideTable
 from .name_color_dialog import get_name_and_color, get_name_and_color_distinct, get_name_and_color_edit
 from .ask_custom import askcustom
-from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path, delete_image
+from ..utils.safety import set_always_sync_on_startup, backup_from_sync, set_external_sync, external_sync, get_data_points, save_data_points, load_image_paths, add_image, get_image_path, delete_image, external_copy_data, external_import_data
 from ..utils.config import config
 from pathlib import Path
 from PIL import Image, ImageTk
@@ -105,6 +105,9 @@ class MainGui(tk.Tk):
                                           command = lambda n=self.option_always_sync_on_startup_var: set_always_sync_on_startup(n))
         
         self.options_menu.add_separator()
+        self.options_menu.add_command(label="Copy Data", command= lambda f=True: external_copy_data(f))
+        self.options_menu.add_command(label="Import Data", command=self.import_data_overwrite)
+        self.options_menu.add_separator()
 
         self.delete_menu = tk.Menu(self.options_menu, tearoff=0)
         for img in self.images:
@@ -121,6 +124,37 @@ class MainGui(tk.Tk):
         self.update_data_point_selector()
         self.status_window = None
 
+    
+    def update_all(self):
+        self.images = [Path(file_path).stem for file_path in load_image_paths()]
+        self.data_points = get_data_points()
+        if self.images == {} or len(self.images) == 0:
+            self.images = []
+            img_or_sync = askcustom(self, "No Images Found", "No images have been registered yet, please either sync with an external directory that has images, or select an image",
+                                    "Sync", "Select Image")
+            if img_or_sync == "Sync":
+                set_external_sync()
+                backup_from_sync()
+            else:
+                self.register_new_image()
+            if len(self.images) == 0:
+                messagebox.showerror("No Images Found", 
+                            "Error, no images have been registered, unable to continue, either sync a directory or choose an image")
+        assert len(self.images) == len(set(self.images)), "Error, you have an image in resources and in the images list that is duplicated"
+        self.update_image_selector()
+        if hasattr(self, "selected_image") and len(self.images) > 0:
+            self.selected_image.set(self.images[0])
+            self.display_new_image()
+        self.update_data_point_selector()
+        self.check_data_points()
+        self.update_delete_images_menu()
+        self.update_image_selector()
+
+    def import_data_overwrite(self):
+        external_import_data()
+        self.update_all()
+        print(f"Images is now {self.images}")
+        print(f"Combo box is now {self.combo_box['values']}")
 
     def update_data_point_selector(self):
         var_cpy = {}
@@ -342,12 +376,19 @@ class MainGui(tk.Tk):
             save_data_points(self.data_points)
     
     def update_image_selector(self):
-        if self.combo_box is None:
+        if getattr(self, "combo_box", None) is None:
             self.make_image_selector()
             return
-        self.combo_box["values"] = self.images
-        max_len = max(len(v) for v in self.images)
+
+        self.combo_box.configure(values=self.images)
+        
+        # Reset selection if current selection is no longer in self.images
+        if self.images and self.selected_image.get() not in self.images:
+            self.selected_image.set(self.images[0])
+
+        max_len = max((len(v) for v in self.images), default=10)
         self.combo_box.configure(width=max_len)
+        self.combo_box.update_idletasks()
 
         
     def save_canvas(self):

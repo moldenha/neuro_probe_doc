@@ -105,6 +105,23 @@ def external_sync(force = False):
     safe_copy_dir(config["ResourceDirectory"], destination_dir, relative_ignore = ["settings.json"]) 
     return True
 
+def external_copy_data(force = False):
+    if force:
+        resource_check(False)
+    directory_path = filedialog.askdirectory()
+    if directory_path:
+        safe_copy_dir(config["ResourceDirectory"], directory_path, relative_ignore = ["settings.json"])
+        messagebox.showinfo(title="Data Copy", message=f"Successfully coppied data to {directory_path}")
+    else:
+        messagebox.warning(title="Data Not Coppied", message="Error: Unable to copy data to directory")
+
+def external_import_data():
+    if messagebox.askyesno("Confirm Import", "Are you sure that you would like to import this data?\nThere is a good chance it will overwrite data you already have.\nPlease consider copying your data to another directory first"):
+        directory_path = filedialog.askdirectory()
+        safe_copy_dir(source_dir = directory_path, destination_dir = config["ResourceDirectory"], relative_ignore = ["settings.json"])
+        messagebox.showinfo(title="Data Imported", message=f"Successfully imported data from {directory_path}")
+
+
 def external_sync_data_points():
     if not config.get("PerformExternalSync", False):
         return
